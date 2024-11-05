@@ -100,15 +100,23 @@ df_long <- df %>%
   mutate(Value = Value / 60)
 
 # create box plots
-ggplot(df_long, aes(x = Variable, y = Value)) + 
+ggplot(df_long, aes(x = "", y = Value)) + 
   geom_boxplot() + 
+  facet_wrap(~ Variable, scales = "free_y") + 
+  coord_cartesian(ylim = c(0, 5)) +
   labs(
     title = "Distribution of Continuous Variables", 
     x = "Variable", 
-    y = "Value (minutes)"
+    y = "Wait Time (minutes)"
   ) +
   scale_y_continuous( labels = comma ) +
   theme_minimal()
+
+```
+```{r}
+continuous_var <- c("WaitTime", "TimeInteracting", "HoldTime", "WrapUpTime")
+
+skim(df[, continuous_var])
 
 ```
 
