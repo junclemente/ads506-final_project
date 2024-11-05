@@ -1,0 +1,25 @@
+---
+title: "ADS-506 Team 1 Final Project - EDA"
+author: "Jun Clemente"
+format: pdf
+editor: visual
+---
+;
+```{r}
+library(tidyverse)
+library(fpp3)
+library(gt)
+```
+# Data Statistics
+
+```{r import_dataset}
+df <- read_csv("../datasets/total_edify_calls_2024-11-03 17_16_05.csv")
+head(df)
+
+str(df)
+```
+```{r}
+df_ts <- df %>%
+  as_tibble()
+```
+
