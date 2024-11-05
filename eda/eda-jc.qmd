@@ -6,6 +6,7 @@ editor: visual
 ---
 ;
 ```{r}
+#| message: false
 library(tidyverse)
 library(fpp3)
 library(gt)
@@ -17,6 +18,8 @@ df <- read_csv("../datasets/total_edify_calls_2024-11-03 17_16_05.csv")
 head(df)
 
 str(df)
+
+summary(df)
 ```
 ```{r}
 df_ts <- df %>%
