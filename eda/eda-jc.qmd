@@ -4,25 +4,111 @@ author: "Jun Clemente"
 format: pdf
 editor: visual
 ---
-;
+
 ```{r}
 #| message: false
+#| warning: false
 library(tidyverse)
 library(fpp3)
 library(gt)
+library(skimr)
+library(scales)
 ```
-# Data Statistics
+
+# Dataset
+
+## Quick Summary
 
 ```{r import_dataset}
-df <- read_csv("../datasets/total_edify_calls_2024-11-03 17_16_05.csv")
+df <- read_csv("../datasets/total_edify_calls_2024-11-03.csv")
+# remove spaces from column names
+colnames(df) <- gsub(" ", "", colnames(df))
 head(df)
+```
 
-str(df)
-
+```{r}
+# quick summary of dataframe
 summary(df)
 ```
+
+## Columns with missing values
+
 ```{r}
-df_ts <- df %>%
-  as_tibble()
+# show columns with missing values
+sapply(df, function(x) sum(is.na(x)))
+# show rows that have missing values
+rows_with_na <- df[!complete.cases(df),]
+rows_with_na
+```
+
+## Detailed view of data
+
+```{r}
+skim(df)
+```
+
+### Observation
+
+The dataset has 8 features and 275, 655 records.
+
+Two of the features are datetime information.
+
+Two features are categorical. Four features are continuous.
+
+Out of all the records, only one row is missing data.
+
+## Categorical Data
+
+```{r}
+df %>%
+  count(CommunicationType) %>%
+  ggplot(aes(x = CommunicationType, y = n)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = n), vjust = -0.5) +
+  labs(
+    title = "Frequency of Communication Type by Category",
+    x = "Communication Type", 
+    y = "Count"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+
+df %>%
+  count(SubCommunicationType) %>%
+  ggplot(aes(x = SubCommunicationType, y = n)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = n), vjust = -0.5) +
+  labs(
+    title = "Frequency of Sub Communication Type by Category",
+    x = "Communication Type", 
+    y = "Count"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+
+```
+### Observations
+
+## Continuous Variables
+```{r}
+# reshape data to long format
+df_long <- df %>%
+  pivot_longer(
+    cols = c(WaitTime, TimeInteracting, HoldTime, WrapUpTime), 
+    names_to = "Variable", values_to = "Value"
+  ) %>%
+  mutate(Value = Value / 60)
+
+# create box plots
+ggplot(df_long, aes(x = Variable, y = Value)) + 
+  geom_boxplot() + 
+  labs(
+    title = "Distribution of Continuous Variables", 
+    x = "Variable", 
+    y = "Value (minutes)"
+  ) +
+  scale_y_continuous( labels = comma ) +
+  theme_minimal()
+
 ```
 
