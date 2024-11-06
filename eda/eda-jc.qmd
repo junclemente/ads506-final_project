@@ -39,17 +39,29 @@ sapply(df, function(x) sum(is.na(x)))
 # show rows that have missing values
 rows_with_na <- df[!complete.cases(df),]
 rows_with_na
+# only one row missing values. remove row from dataset
+df_clean <- na.omit(df)
+df_clean[!complete.cases(df_clean),]
+```
+
+```{r}
+# check for rows with NA, Inf, or -Inf
+rows_with_non_finite <- df_clean %>%
+  filter(
+    if_any(c(HoldTime, TimeInteracting, WaitTime, WrapUpTime), ~ !is.finite(.))
+  )
+rows_with_non_finite
 ```
 
 ## Detailed view of data
 
 ```{r}
-skim(df)
+skim(df_clean)
 ```
 
 ### Observation
 
-The dataset has 8 features and 275, 655 records.
+The dataset has 8 features and 275,655 records.
 
 Two of the features are datetime information.
 
@@ -60,7 +72,7 @@ Out of all the records, only one row is missing data.
 ## Categorical Data
 
 ```{r}
-df %>%
+df_clean %>%
   count(CommunicationType) %>%
   ggplot(aes(x = CommunicationType, y = n)) +
   geom_bar(stat = "identity") + 
@@ -73,7 +85,7 @@ df %>%
   scale_y_continuous(labels = comma) +
   theme_minimal()
 
-df %>%
+df_clean %>%
   count(SubCommunicationType) %>%
   ggplot(aes(x = SubCommunicationType, y = n)) +
   geom_bar(stat = "identity") + 
@@ -87,12 +99,14 @@ df %>%
   theme_minimal()
 
 ```
+
 ### Observations
 
 ## Continuous Variables
+
 ```{r}
 # reshape data to long format
-df_long <- df %>%
+df_long <- df_clean %>%
   pivot_longer(
     cols = c(WaitTime, TimeInteracting, HoldTime, WrapUpTime), 
     names_to = "Variable", values_to = "Value"
@@ -113,10 +127,93 @@ ggplot(df_long, aes(x = "", y = Value)) +
   theme_minimal()
 
 ```
+
 ```{r}
 continuous_var <- c("WaitTime", "TimeInteracting", "HoldTime", "WrapUpTime")
 
-skim(df[, continuous_var])
+skim(df_clean[, continuous_var]) %>%
+  select(skim_variable, numeric.mean, numeric.sd, numeric.p0, numeric.p25, numeric.p50, numeric.p75, numeric.p100) %>%
+  gt() %>%
+  fmt_number(
+    columns = everything(),
+    decimals = 2
+  ) %>%
+  cols_label(
+    skim_variable = "Variable",
+    numeric.mean = "Mean", 
+    numeric.sd = "SD", 
+    numeric.p0 = "Min", 
+    numeric.p25 = "25%", 
+    numeric.p50 = "50%", 
+    numeric.p75 = "75%", 
+    numeric.p100 = "Max"
+  ) %>%
+  tab_header(
+    title = "Statistics for Continuous Variables (Minutes)"
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  cols_align(
+    align = "center", 
+    columns = c(numeric.mean, numeric.sd, numeric.p0, numeric.p25, numeric.p50, numeric.p75, numeric.p100)
+  )
+
+```
+
+### Observations
+
+Each of the continuous variables have relatively low means and they also contain extremely high outliers.
+
+# Time Series
+
+## Hourly
+```{r}
+# aggregate to hourly
+df_hourly <- df_clean %>%
+  mutate(hour = floor_date(StartTime, "hour")) %>%
+  group_by(hour) %>%
+  summarise(total_calls = n())
+
+# convert to tsibble
+df_hourly_ts <- df_hourly %>%
+  as_tsibble(index = hour)
+
+# plot using autoplot
+autoplot(df_hourly_ts, total_calls) +
+  labs(
+    title = "Total Calls", 
+    x = "Hour",
+    y = "Total Calls"
+  ) +
+  theme_minimal()
+
+  
+```
+## Daily 
+```{r}
+df_daily <- df_clean %>%
+  mutate(day = floor_date(StartTime, "day")) %>%
+  group_by(day) %>%
+  summarise(total_calls = n()) %>%
+  ungroup() %>%
+  complete(day = seq.Date(min(day), max(day), by = "day"), fill = list(total_calls = 0))
+
+# convert to tsibble
+df_daily_ts <- df_daily %>%
+  as_tsibble(index = day)
+
+# plot chart
+df_daily_ts %>%
+  autoplot(df_daily_ts, total_calls) +
+  labs(
+    title = "Title"
+  ) + 
+  theme_minimal()
+  
+
+
 
 ```
 
