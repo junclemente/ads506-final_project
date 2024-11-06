@@ -210,7 +210,8 @@ df_weekly <- df_clean %>%
   group_by(week) %>%
   summarise(total_calls = n()) %>%  # Count the number of rows (calls) per week
   ungroup() %>%
-  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))  # Fill in missing weeks with 0 calls
+  # Fill in missing weeks with 0 calls
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))  
 
 df_weekly_ts <- df_weekly %>%
   as_tsibble(index = week)
@@ -244,6 +245,10 @@ components_calls %>%
   ) +
   theme_minimal()
 ```
+### Observations
+Time Series dataset is missing some data that requires filling in. 
+To create these charts, missing weeks were arbitrarily filled in with "0". 
+
 ## Weekly - Average of WaitTime
 ```{r}
 df_weekly_wait <- df_clean %>%
@@ -251,6 +256,7 @@ df_weekly_wait <- df_clean %>%
   group_by(week) %>%
   summarise(avg_wait_time = mean(WaitTime, na.rm = TRUE)) %>%
   ungroup() %>%
+  # Fill in missing weeks
   complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(avg_wait_time = 0))
 
 # convert to tsibble
@@ -262,7 +268,7 @@ df_weekly_wait_ts %>%
   autoplot(avg_wait_time) +
   labs(
     title = "Weekly Average Wait Time (Mar 2022 - Oct 2024)", 
-    y = "Average Wait Time (min)", 
+    y = "Average Wait Time (min)",
     x = "Date"
   ) +
   theme_minimal()
@@ -287,4 +293,9 @@ components_wait %>%
   ) +
   theme_minimal()
 ```
+### Observations
+
+Based on average wait time, this does not have any seasonality or cyclic elements. 
+Some weeks were missing data and therefore arbitrarily imputed with the mean wait time. 
+
 
