@@ -180,6 +180,7 @@ Each of the continuous variables have relatively low means and they also contain
 # Time Series
 
 ## Hourly
+
 ```{r}
 # aggregate to hourly
 df_hourly <- df_clean %>%
@@ -202,7 +203,9 @@ autoplot(df_hourly_ts, total_calls) +
 
   
 ```
+
 ## Weeklyi
+
 ```{r}
 
 df_weekly <- df_clean %>%
@@ -235,4 +238,3 @@ df_weekly_ts %>%
 
 
 ```
-
