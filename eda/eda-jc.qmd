@@ -200,28 +200,17 @@ autoplot(df_hourly_ts, total_calls) +
     y = "Total Calls"
   ) +
   theme_minimal()
-
-  
 ```
 
-## Weeklyi
+## Weekly - Total Call Volume
 
 ```{r}
-
 df_weekly <- df_clean %>%
-  mutate(week = floor_date(StartTime, "week")) %>%
+  mutate(week = as.Date(StartTime, "week")) %>%  # Round StartTime to the beginning of the week
   group_by(week) %>%
-  summarise(total_calls = n()) %>%
+  summarise(total_calls = n()) %>%  # Count the number of rows (calls) per week
   ungroup() %>%
-  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))
-# df_daily <- df_clean %>%
-#   mutate(day = floor_date(StartTime, "day")) %>%
-#   group_by(day) %>%
-#   summarise(total_calls = n()) %>%
-#   ungroup() %>%
-#   complete(day = seq.Date(min(day), max(day), by = "day"), fill = list(total_calls = 0))
-
-# convert to tsibble
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))  # Fill in missing weeks with 0 calls
 
 df_weekly_ts <- df_weekly %>%
   as_tsibble(index = week)
@@ -230,11 +219,72 @@ df_weekly_ts <- df_weekly %>%
 df_weekly_ts %>%
   autoplot(total_calls) +
   labs(
-    title = "Title"
+    title = "Weekly Call Volumes (Mar 2022 - Oct 2024)",
+    y = "Total Calls",
+    x = "Date"
   ) + 
   theme_minimal()
-  
 
+# decomp of weekly total call volume
+decomp_calls <- df_weekly_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  model(stl = STL(total_calls ~ season(window = "periodic")))
 
+# extract and view decomp components
+components_calls <- decomp_calls %>%
+  components()
 
+# plot decomp
+components_calls %>%
+  autoplot() +
+  labs(
+    title = "STL Decomposition of Weekly Call Volumnes", 
+    y = "Total Calls", 
+    x = "Date"
+  ) +
+  theme_minimal()
 ```
+## Weekly - Average of WaitTime
+```{r}
+df_weekly_wait <- df_clean %>%
+  mutate(week = as.Date(StartTime , "week")) %>%
+  group_by(week) %>%
+  summarise(avg_wait_time = mean(WaitTime, na.rm = TRUE)) %>%
+  ungroup() %>%
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(avg_wait_time = 0))
+
+# convert to tsibble
+df_weekly_wait_ts <- df_weekly_wait %>%
+  as_tsibble(index = week)
+
+# plot chart
+df_weekly_wait_ts %>%
+  autoplot(avg_wait_time) +
+  labs(
+    title = "Weekly Average Wait Time (Mar 2022 - Oct 2024)", 
+    y = "Average Wait Time (min)", 
+    x = "Date"
+  ) +
+  theme_minimal()
+```
+```{r}
+decomp_wait <- df_weekly_wait_ts %>%
+  fill_gaps() %>%
+  mutate(avg_wait_time = if_else(is.na(avg_wait_time), mean(avg_wait_time, na.rm = TRUE), avg_wait_time)) %>%
+  model(stl = STL(avg_wait_time ~ season(window = "periodic")))
+
+# extract and view decomp components
+components_wait <- decomp_wait %>%
+  components()
+
+# plot decomp
+components_wait %>%
+  autoplot() + 
+  labs(
+    title = "STL Decomposition of Weekly Average Wait Time", 
+    y = "Average Wait Time", 
+    x = "Date"
+  ) +
+  theme_minimal()
+```
+
