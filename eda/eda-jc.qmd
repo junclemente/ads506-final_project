@@ -126,6 +126,17 @@ ggplot(df_long, aes(x = "", y = Value)) +
   scale_y_continuous( labels = comma ) +
   theme_minimal()
 
+ggplot(df_long, aes(x = Value)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  facet_wrap(~ Variable, scales = "free_x") + 
+  labs(
+    title = "Distsribution",
+    x = "Time (minutes)", 
+    y = "Frequency"
+  ) +
+  scale_y_continuous(labels = comma) + 
+  scale_x_continuous(labels = comma) + 
+  theme_minimal()
 ```
 
 ```{r}
@@ -191,22 +202,30 @@ autoplot(df_hourly_ts, total_calls) +
 
   
 ```
-## Daily 
+## Weeklyi
 ```{r}
-df_daily <- df_clean %>%
-  mutate(day = floor_date(StartTime, "day")) %>%
-  group_by(day) %>%
+
+df_weekly <- df_clean %>%
+  mutate(week = floor_date(StartTime, "week")) %>%
+  group_by(week) %>%
   summarise(total_calls = n()) %>%
   ungroup() %>%
-  complete(day = seq.Date(min(day), max(day), by = "day"), fill = list(total_calls = 0))
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))
+# df_daily <- df_clean %>%
+#   mutate(day = floor_date(StartTime, "day")) %>%
+#   group_by(day) %>%
+#   summarise(total_calls = n()) %>%
+#   ungroup() %>%
+#   complete(day = seq.Date(min(day), max(day), by = "day"), fill = list(total_calls = 0))
 
 # convert to tsibble
-df_daily_ts <- df_daily %>%
-  as_tsibble(index = day)
+
+df_weekly_ts <- df_weekly %>%
+  as_tsibble(index = week)
 
 # plot chart
-df_daily_ts %>%
-  autoplot(df_daily_ts, total_calls) +
+df_weekly_ts %>%
+  autoplot(total_calls) +
   labs(
     title = "Title"
   ) + 
