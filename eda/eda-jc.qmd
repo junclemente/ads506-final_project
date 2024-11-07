@@ -245,14 +245,15 @@ components_calls %>%
   ) +
   theme_minimal()
 ```
-### Observations
-Time Series dataset is missing some data that requires filling in. 
-To create these charts, missing weeks were arbitrarily filled in with "0". 
 
-The Remainder chart does not appear to be random. This would need to be explored
-further to determine if there are any uncaptured season trends, or autocorrelations. 
+### Observations
+
+Time Series dataset is missing some data that requires filling in. To create these charts, missing weeks were arbitrarily filled in with "0".
+
+The Remainder chart does not appear to be random. This would need to be explored further to determine if there are any uncaptured season trends, or autocorrelations.
 
 ## Weekly - Average of WaitTime
+
 ```{r}
 df_weekly_wait <- df_clean %>%
   mutate(week = as.Date(StartTime , "week")) %>%
@@ -276,6 +277,7 @@ df_weekly_wait_ts %>%
   ) +
   theme_minimal()
 ```
+
 ```{r}
 decomp_wait <- df_weekly_wait_ts %>%
   fill_gaps() %>%
@@ -296,9 +298,7 @@ components_wait %>%
   ) +
   theme_minimal()
 ```
+
 ### Observations
 
-Based on average wait time, this does not have any seasonality or cyclic elements. 
-Some weeks were missing data and therefore arbitrarily imputed with the mean wait time. 
-
-
+Based on average wait time, this does not have any seasonality or cyclic elements. Some weeks were missing data and therefore arbitrarily imputed with the mean wait time.
