@@ -249,6 +249,9 @@ components_calls %>%
 Time Series dataset is missing some data that requires filling in. 
 To create these charts, missing weeks were arbitrarily filled in with "0". 
 
+The Remainder chart does not appear to be random. This would need to be explored
+further to determine if there are any uncaptured season trends, or autocorrelations. 
+
 ## Weekly - Average of WaitTime
 ```{r}
 df_weekly_wait <- df_clean %>%
