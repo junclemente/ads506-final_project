@@ -602,16 +602,15 @@ Step 3: Separate timestamp into date, time, and day of week
 df_date <- df_date %>%
   mutate(
     Date = as.Date(StartTime),
-    Time = format(StartTime, "%H:%M:%S"), 
     Day = weekdays(StartTime)
   )
 ```
 
-Step 4: Drop unnecessary columns. Since this forecast is focusing on inbound calls, we will drop the details around call length, hold times, etc.
+Step 4: Drop unnecessary columns. Since this forecast is focusing on inbound calls, we will drop the details around call length, hold times, etc. Additionally we extracted our dates, so we will drop StartTime
 
 ```{r drop_columns}
 df_columns <- df_date %>%
-  select(-EndTime, -CommunicationType, -SubCommunicationType, -WaitTime, -TimeInteracting, -HoldTime, -WrapUpTime)
+  select(-StartTime, -EndTime, -CommunicationType, -SubCommunicationType, -WaitTime, -TimeInteracting, -HoldTime, -WrapUpTime)
 ```
 
 Step 5: Add weather. Source: [https://www.ncei.noaa.gov/access/search/data-search](https://www.ncei.noaa.gov/access/search/data-search/daily-summaries?bbox=33.014,-117.462,32.418,-116.866&pageNum=1)
@@ -636,7 +635,7 @@ head(weather)
 
 ```{r join_weather}
 df_weather <- df_columns %>%
-  left_join(weather %>% select(DATE, TMAX_ATTRIBUTES, TMAX_CEL), by = c("Date" = "DATE"))
+  left_join(weather %>% select(DATE, TMAX_CEL), by = c("Date" = "DATE"))
 ```
 
 ```{r check_nulls}
@@ -644,35 +643,36 @@ na_count <- sapply(df_weather, function(x) sum(is.na(x)))
 print(na_count)
 ```
 
-Step 6: Add shift information
+Step 6: Sum up by day
 
-```{r four_shift}
+```{r summarize_day}
 df_prepped <- df_weather %>%
-  mutate(
-    four_shift = case_when(
-      Time >= "00:00" & Time < "04:00" ~ 1,
-      Time >= "04:00" & Time < "08:00" ~ 2,
-      Time >= "08:00" & Time < "12:00" ~ 3,
-      Time >= "12:00" & Time < "16:00" ~ 4,
-      Time >= "16:00" & Time < "20:00" ~ 5,
-      Time >= "20:00" & Time <= "23:59" ~ 6
-    )
-  )
-```
-
-```{r six_shift}
-
-df_prepped <- df_prepped %>%
-  mutate(
-    six_shift = case_when(
-      Time >= "00:00" & Time < "06:00" ~ 1,
-      Time >= "06:00" & Time < "12:00" ~ 2,
-      Time >= "12:00" & Time < "18:00" ~ 3,
-      Time >= "18:00" & Time <= "23:59" ~ 4
-    )
-  )
+  group_by(Date, Day, TMAX_CEL) %>%
+  summarise(total_calls = n(), .groups = "drop")
 ```
 
 ```{r save_output}
 write_csv(df_prepped, "C:/Users/sasha/OneDrive/Documents/Datasets/calls_prepped.csv")
+```
+
+# New Data Exploration
+
+```{r scatter_plots}
+library(gridExtra)
+
+temp_scatter <- df_prepped|>
+  ggplot(aes(x = total_calls, y =TMAX_CEL)) + 
+  geom_point() + 
+  theme_minimal() + 
+  labs(title = "Scatter plot, Temperature and Call Volume")+ 
+  geom_smooth(method = lm)
+
+day_box <- df_prepped|>
+  ggplot(aes(x = Day, y = total_calls)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue") +
+  labs(title = "Total Calls by Day of the Week", x = "Day of the Week", y = "Total Calls") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+grid.arrange(temp_scatter, day_box, ncol = 2) 
 ```
