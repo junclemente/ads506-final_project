@@ -1,0 +1,678 @@
+---
+title: "ADS-506 Team 1 Final Project"
+author: "Graham Ward, Jun Clemente, & Sasha Libolt"
+format: pdf
+editor: visual
+---
+
+```{r import}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(fpp3)
+library(gt)
+library(skimr)
+library(scales)
+```
+
+# Exploratory Data Analysis
+
+## Quick Summary
+
+```{r import_dataset}
+df <- read_csv("C:/Users/sasha/OneDrive/Documents/Datasets/calls.csv")
+# remove spaces from column names
+colnames(df) <- gsub(" ", "", colnames(df))
+head(df)
+```
+
+```{r quick_summary}
+# quick summary of dataframe
+summary(df)
+```
+
+## Columns with missing values
+
+```{r missing_values}
+# show columns with missing values
+sapply(df, function(x) sum(is.na(x)))
+# show rows that have missing values
+rows_with_na <- df[!complete.cases(df),]
+rows_with_na
+# only one row missing values. remove row from dataset
+df_clean <- na.omit(df)
+df_clean[!complete.cases(df_clean),]
+```
+
+```{r na_or_inf}
+# check for rows with NA, Inf, or -Inf
+rows_with_non_finite <- df_clean %>%
+  filter(
+    if_any(c(HoldTime, TimeInteracting, WaitTime, WrapUpTime), ~ !is.finite(.))
+  )
+rows_with_non_finite
+```
+
+## Detailed view of data
+
+```{r data_details}
+skim(df_clean)
+```
+
+### Observation
+
+The dataset has 8 features and 275,655 records.
+
+Two of the features are datetime information.
+
+Two features are categorical. Four features are continuous.
+
+Out of all the records, only one row is missing data.
+
+## Categorical Variables
+
+```{r com_type}
+df_clean %>%
+  count(CommunicationType) %>%
+  ggplot(aes(x = CommunicationType, y = n)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = n), vjust = -0.5) +
+  labs(
+    title = "Frequency of Communication Type by Category",
+    x = "Communication Type", 
+    y = "Count"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+
+df_clean %>%
+  count(SubCommunicationType) %>%
+  ggplot(aes(x = SubCommunicationType, y = n)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = n), vjust = -0.5) +
+  labs(
+    title = "Frequency of Sub Communication Type by Category",
+    x = "Communication Type", 
+    y = "Count"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+
+```
+
+### Observations
+
+Most communication type is by phone. Dataset contains mostly inbound communication.
+
+## Continuous Variables
+
+```{r boxplot_contvar}
+# reshape data to long format
+df_long <- df_clean %>%
+  pivot_longer(
+    cols = c(WaitTime, TimeInteracting, HoldTime, WrapUpTime), 
+    names_to = "Variable", values_to = "Value"
+  ) %>%
+  mutate(Value = Value / 60)
+
+# create box plots
+ggplot(df_long, aes(x = "", y = Value)) + 
+  geom_boxplot() + 
+  facet_wrap(~ Variable, scales = "free_y") + 
+  coord_cartesian(ylim = c(0, 5)) +
+  labs(
+    title = "Distribution of Continuous Variables", 
+    x = "Variable", 
+    y = "Wait Time (minutes)"
+  ) +
+  scale_y_continuous( labels = comma ) +
+  theme_minimal()
+
+ggplot(df_long, aes(x = Value)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  facet_wrap(~ Variable, scales = "free_x") + 
+  labs(
+    title = "Distribution",
+    x = "Time (minutes)", 
+    y = "Frequency"
+  ) +
+  scale_y_continuous(labels = comma) + 
+  scale_x_continuous(labels = comma) + 
+  theme_minimal()
+```
+
+```{r stats_contvar}
+continuous_var <- c("WaitTime", "TimeInteracting", "HoldTime", "WrapUpTime")
+
+skim(df_clean[, continuous_var]) %>%
+  select(skim_variable, numeric.mean, numeric.sd, numeric.p0, numeric.p25, numeric.p50, numeric.p75, numeric.p100) %>%
+  gt() %>%
+  fmt_number(
+    columns = everything(),
+    decimals = 2
+  ) %>%
+  cols_label(
+    skim_variable = "Variable",
+    numeric.mean = "Mean", 
+    numeric.sd = "SD", 
+    numeric.p0 = "Min", 
+    numeric.p25 = "25%", 
+    numeric.p50 = "50%", 
+    numeric.p75 = "75%", 
+    numeric.p100 = "Max"
+  ) %>%
+  tab_header(
+    title = "Statistics for Continuous Variables (Minutes)"
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  cols_align(
+    align = "center", 
+    columns = c(numeric.mean, numeric.sd, numeric.p0, numeric.p25, numeric.p50, numeric.p75, numeric.p100)
+  )
+
+```
+
+### Observations
+
+Each of the continuous variables have relatively low means and they also contain extremely high outliers.
+
+## Time Series
+
+### Hourly
+
+```{r hourly}
+# aggregate to hourly
+df_hourly <- df_clean %>%
+  mutate(hour = floor_date(StartTime, "hour")) %>%
+  group_by(hour) %>%
+  summarise(total_calls = n())
+
+# convert to tsibble
+df_hourly_ts <- df_hourly %>%
+  as_tsibble(index = hour)
+
+# plot using autoplot
+autoplot(df_hourly_ts, total_calls) +
+  labs(
+    title = "Total Calls by Hour over Time", 
+    x = "Hour",
+    y = "Total Calls"
+  ) +
+  theme_minimal()
+
+# distribution of calls by hour
+ggplot(df_hourly, aes(x = hour, y = total_calls)) + 
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Distribution of Calls by Hour", 
+    x = "Hour", 
+    y = "Total Calls"
+  )
+```
+
+#### Observations
+
+Time series at the hourly granularity is too noisy and visually cluttered. Better information could be gathered at a lower frequency: daily, weekly, or monthly.
+
+```{r hour_of_day}
+# aggregate to hour of day
+df_hour_of_day <- df_clean %>%
+  mutate(hour_of_day = format(StartTime, "%H")) %>%
+  group_by(hour_of_day) %>%
+  summarise(total_calls = n())
+
+# plot histogram of total counts
+ggplot(df_hour_of_day, aes(x = hour_of_day, y = total_calls)) +
+  geom_bar(stat = "identity", fill = "steelblue") + 
+  labs(
+    title = "Distribution of Calls by Hour of Day", 
+    x = "Hour of Day", 
+    y = "Total Calls"
+  ) +
+  theme_minimal()
+
+# create df for median calls per hour
+df_daily_hourly_calls <- df_clean %>%
+  mutate(date = as.Date(StartTime), 
+         hour_of_day = format(StartTime, "%H")) %>%
+  group_by(date, hour_of_day) %>%
+  summarise(total_calls = n(), .groups = 'drop')
+
+# create df to calc median calls/hour
+df_hourly_median <- df_daily_hourly_calls %>%
+  group_by(hour_of_day) %>%
+  summarise(median_calls = median(total_calls), .groups = 'drop')
+
+# plot median calls by hour
+ggplot(df_hourly_median, aes(x = hour_of_day, y = median_calls)) + 
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+    title = "Median Number of Calls by Hour of Day", 
+    x = "Hour of Day", 
+    y = "Median Calls"
+  ) + 
+  theme_minimal()
+```
+
+#### Observations
+
+Call volumes are greater than 15 calls/hour from 11am - 9pm.
+
+### Daily
+
+```{r daily}
+# aggregate to daily
+df_daily_calls <- df_clean %>%
+  mutate(date = as.Date(StartTime)) %>%
+  group_by(date) %>%
+  summarise(total_calls = n(), .groups = 'drop')
+
+# convert to tsibble
+df_daily_calls_ts <- df_daily_calls %>%
+  as_tsibble(index = date)
+
+# plot time series of daily call vols
+df_daily_calls_ts %>%
+  autoplot(total_calls) + 
+  labs(
+    title = "Daily Call Volumes (Mar 2022 - Oct 2024)",
+    y = "Total Calls",
+    x = "Date"
+  )
+
+# autocorrelation
+df_daily_calls_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  ACF(total_calls) %>%
+  autoplot()
+
+# decomp of daily total call volume
+decomp_daily_calls <- df_daily_calls_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  model(stl = STL(total_calls ~ season(window = "periodic")))
+
+# extract and view decomp components
+components_calls_daily <- decomp_daily_calls %>%
+  components()
+
+# plot decomp
+components_calls_daily %>%
+  autoplot() +
+  labs(
+    title = "STL Decomposition of Daily Call Volumes", 
+    y = "Total Calls", 
+    x = "Date"
+  )
+```
+
+#### Observations
+
+These plots suggest a seasonal pattern in call volumes.
+
+The ACF plot suggests strong autocorrelation with weekly seasonality as seen in the spikes every 7 days.
+
+```{r day_of_wk_dist}
+# create var for day of week order
+days_of_week_order = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+# aggregate median calls by date 
+df_median_calls_by_day <- df_daily_calls %>%
+  mutate(day_of_week = weekdays(date)) %>%
+  group_by(day_of_week) %>%
+  summarise(median_calls = median(total_calls), .groups = 'drop')
+
+# factor to ensure proper day of week order
+df_median_calls_by_day$day_of_week <- factor(
+  df_median_calls_by_day$day_of_week, 
+  levels = days_of_week_order
+)
+
+# 
+df_median_calls_by_day %>%
+  ggplot(aes(x = day_of_week, y = median_calls)) + 
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+    title = "Median Number of Calls by Day of the Week", 
+    x = "Day of the Week", 
+    y = "Median Calls"
+  ) +
+  theme_minimal()
+```
+
+```{r day_vs_hour}
+# df group by day of week and hour of day
+df_day_hour_calls <- df_clean %>%
+  mutate(day_of_week = weekdays(as.Date(StartTime)),
+         hour_of_day = format(StartTime, "%H")) %>%
+  group_by(day_of_week, hour_of_day) %>%
+  summarise(total_calls = n(), .groups = 'drop')
+
+# factor for day of week order
+df_day_hour_calls$day_of_week <- factor(
+  df_day_hour_calls$day_of_week,
+  levels = days_of_week_order
+)
+
+# plot heatmap
+df_day_hour_calls %>%
+  ggplot(aes(x = hour_of_day, y = day_of_week, fill = total_calls)) +
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Heat Map of Call Volumes by Day of Week and Hour of Day", 
+    x = "Hour of Day", 
+    y = "Day of Week", 
+    fill = "Total Calls"
+  ) +
+  theme_minimal()
+```
+
+#### Observations
+
+Call volumes are highest, exceeding 300 calls per day from Tuesday through Friday and mostly concentrated around 1300 hrs.
+
+### Weekly - Total Call Volume
+
+```{r weekly}
+df_weekly <- df_clean %>%
+  mutate(week = floor_date(as.Date(StartTime), "week")) %>%  # Round StartTime to the beginning of the week
+  group_by(week) %>%
+  summarise(total_calls = n()) %>%  # Count the number of rows (calls) per week
+  ungroup() %>%
+  # Fill in missing weeks with 0 calls
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(total_calls = 0))  
+
+df_weekly_ts <- df_weekly %>%
+  as_tsibble(index = week)
+
+# plot chart
+df_weekly_ts %>%
+  autoplot(total_calls) +
+  labs(
+    title = "Weekly Call Volumes (Mar 2022 - Oct 2024)",
+    y = "Total Calls",
+    x = "Date"
+  ) + 
+  theme_minimal()
+
+# autocorrelation
+df_weekly_ts %>%
+  ACF(total_calls) %>%
+  autoplot()
+
+# decomp of weekly total call volume
+decomp_calls <- df_weekly_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  model(stl = STL(total_calls ~ season(window = "periodic")))
+
+# extract and view decomp components
+components_calls <- decomp_calls %>%
+  components()
+
+# plot decomp
+components_calls %>%
+  autoplot() +
+  labs(
+    title = "STL Decomposition of Weekly Call Volumes", 
+    y = "Total Calls", 
+    x = "Date"
+  ) +
+  theme_minimal()
+```
+
+#### Observations
+
+These chart shows that weekly call volumes may be seasonal. The ACF chart suggests there is significant positive autocorrelation.
+
+The Remainder chart does not appear to be random. This would need to be explored further to determine if there are any uncaptured season trends.
+
+### Monthly
+
+```{r}
+# aggregate by month
+df_monthly_calls <- df_clean %>%
+  mutate(month = floor_date(as.Date(StartTime), "month")) %>%
+  group_by(month) %>%
+  summarise(total_calls = n(), .groups = 'drop')
+
+# convert to tsibble
+df_monthly_calls_ts <- df_monthly_calls %>%
+  as_tsibble(index = month)
+
+# plot
+df_monthly_calls_ts %>%
+  autoplot(total_calls) +
+  labs(
+    title = "Monthly Call Volumes (Mar 2022 - Oct 2024)", 
+    y = "Total Calls", 
+    x = "Date"
+  ) + 
+  theme_minimal() 
+
+# plot autocorrelation
+df_monthly_calls_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  ACF(total_calls) %>%
+  autoplot() + 
+  labs(
+    title = "ACF of Monthly Call Volumes Time Series",
+    y = "Autocorrelation"
+  )
+
+# decomp of weekly total call volume
+decomp_calls_monthly <- df_monthly_calls_ts %>%
+  fill_gaps(total_calls = 0) %>%
+  model(stl = STL(total_calls ~ season(window = "periodic")))
+
+# extract and view decomp components
+components_calls_monthly <- decomp_calls_monthly %>%
+  components()
+
+# plot decomp
+components_calls_monthly %>%
+  autoplot() +
+  labs(
+    title = "STL Decomposition of Monthly Call Volumes", 
+    y = "Total Calls", 
+    x = "Date"
+  ) +
+  theme_minimal()
+
+```
+
+#### Observations
+
+Monthly call volumes appear to have seasonal pattern. The ACF chart shows that there are no lags outside of the significance threshold indicating low autocorrelation.
+
+```{r}
+# aggregate by month
+df_median_calls_by_month <- df_daily_calls %>%
+  mutate(month = month(date, label = TRUE, abbr = FALSE)) %>%
+  group_by(month) %>%
+  summarise(median_calls = median(total_calls), .groups = "drop")
+
+# plot 
+df_median_calls_by_month %>%
+  ggplot(aes(x = month, y = median_calls)) + 
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+    title = "Median Calls by Month", 
+    x = "Month", 
+    y = "Median Calls"
+  ) + theme_minimal()
+```
+
+#### Observations
+
+Median call volumes \> 300 call occur between April - August.
+
+### Weekly - Average of WaitTime
+
+```{r}
+df_weekly_wait <- df_clean %>%
+  mutate(week = floor_date(as.Date(StartTime), "week")) %>%
+  group_by(week) %>%
+  summarise(avg_wait_time = mean(WaitTime, na.rm = TRUE)) %>%
+  ungroup() %>%
+  # Fill in missing weeks
+  complete(week = seq.Date(min(week), max(week), by = "week"), fill = list(avg_wait_time = 0))
+
+# convert to tsibble
+df_weekly_wait_ts <- df_weekly_wait %>%
+  as_tsibble(index = week)
+
+# plot chart
+df_weekly_wait_ts %>%
+  autoplot(avg_wait_time) +
+  labs(
+    title = "Weekly Average Wait Time (Mar 2022 - Oct 2024)", 
+    y = "Average Wait Time (min)",
+    x = "Date"
+  ) +
+  theme_minimal()
+
+# autocorrelation
+df_weekly_wait_ts %>%
+  fill_gaps(avg_wait_time = 0) %>%
+  ACF(avg_wait_time) %>%
+  autoplot() + 
+  labs(
+    title = "ACF of Weekly Average Wait Time", 
+    y = "ACF"
+  )
+
+# decomposition
+decomp_wait <- df_weekly_wait_ts %>%
+  fill_gaps() %>%
+  mutate(avg_wait_time = if_else(is.na(avg_wait_time), mean(avg_wait_time, na.rm = TRUE), avg_wait_time)) %>%
+  model(stl = STL(avg_wait_time ~ season(window = "periodic")))
+
+# extract and view decomp components
+components_wait <- decomp_wait %>%
+  components()
+
+# plot decomp
+components_wait %>%
+  autoplot() + 
+  labs(
+    title = "STL Decomposition of Weekly Average Wait Time", 
+    y = "Average Wait Time", 
+    x = "Date"
+  ) +
+  theme_minimal()
+```
+
+#### Observations
+
+Based on average wait time, this does not have any seasonality or cyclic elements. Some weeks were missing data and therefore arbitrarily imputed with the mean wait time.
+
+# Data Preparation
+
+Step 1: Drop all rows that are not an inbound phone call. 23, 185 rows dropped
+
+```{r filter_phone}
+df_phone <- df %>%
+  filter(CommunicationType == "phone") %>%
+  filter(SubCommunicationType == "inbound")
+  dim(df_phone)
+```
+
+Step 2: Check min/max dates. Final data should be 4/11/22 - 10/31/24 as prior to 4/11/22 was on boarding the phone system and not representative of operations.
+
+```{r min_max_dates}
+max_date <- max(df_phone$StartTime)
+min_date <- min(df_phone$StartTime)
+print(max_date)
+print(min_date)
+```
+
+```{r drop_dates}
+df_date <- df_phone %>%
+  filter(StartTime >= as.POSIXct("2022-11-04"))
+phone_min <- min(df_date$StartTime)
+print(phone_min)
+```
+
+Step 3: Separate timestamp into date, time, and day of week
+
+```{r convert_dates}
+df_date <- df_date %>%
+  mutate(
+    Date = as.Date(StartTime),
+    Time = format(StartTime, "%H:%M:%S"), 
+    Day = weekdays(StartTime)
+  )
+```
+
+Step 4: Drop unnecessary columns. Since this forecast is focusing on inbound calls, we will drop the details around call length, hold times, etc.
+
+```{r drop_columns}
+df_columns <- df_date %>%
+  select(-EndTime, -CommunicationType, -SubCommunicationType, -WaitTime, -TimeInteracting, -HoldTime, -WrapUpTime)
+```
+
+Step 5: Add weather. Source: [https://www.ncei.noaa.gov/access/search/data-search](https://www.ncei.noaa.gov/access/search/data-search/daily-summaries?bbox=33.014,-117.462,32.418,-116.866&pageNum=1)
+
+```{r import_weather}
+weather <- read_csv("C:/Users/sasha/OneDrive/Documents/Datasets/weather.csv", col_types = cols(
+   DATE = col_date(format = "%Y-%m-%d"),  
+  TMAX = col_integer(),
+  TMAX_ATTRIBUTES = col_character()
+))
+head(weather)
+```
+
+```{r convert_tmax}
+
+weather <- weather %>%
+  mutate(
+    TMAX_CEL = as.numeric(gsub(",", "", TMAX)) / 10
+  )
+head(weather)
+```
+
+```{r join_weather}
+df_weather <- df_columns %>%
+  left_join(weather %>% select(DATE, TMAX_ATTRIBUTES, TMAX_CEL), by = c("Date" = "DATE"))
+```
+
+```{r check_nulls}
+na_count <- sapply(df_weather, function(x) sum(is.na(x)))
+print(na_count)
+```
+
+Step 6: Add shift information
+
+```{r four_shift}
+df_prepped <- df_weather %>%
+  mutate(
+    four_shift = case_when(
+      Time >= "00:00" & Time < "04:00" ~ 1,
+      Time >= "04:00" & Time < "08:00" ~ 2,
+      Time >= "08:00" & Time < "12:00" ~ 3,
+      Time >= "12:00" & Time < "16:00" ~ 4,
+      Time >= "16:00" & Time < "20:00" ~ 5,
+      Time >= "20:00" & Time <= "23:59" ~ 6
+    )
+  )
+```
+
+```{r six_shift}
+
+df_prepped <- df_prepped %>%
+  mutate(
+    six_shift = case_when(
+      Time >= "00:00" & Time < "06:00" ~ 1,
+      Time >= "06:00" & Time < "12:00" ~ 2,
+      Time >= "12:00" & Time < "18:00" ~ 3,
+      Time >= "18:00" & Time <= "23:59" ~ 4
+    )
+  )
+```
+
+```{r save_output}
+write_csv(df_prepped, "C:/Users/sasha/OneDrive/Documents/Datasets/calls_prepped.csv")
+```
