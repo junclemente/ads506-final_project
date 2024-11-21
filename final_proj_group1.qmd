@@ -11,6 +11,7 @@ editor: visual
 library(tidyverse)
 library(fpp3)
 library(gt)
+library(tseries)
 library(skimr)
 library(scales)
 ```
@@ -20,7 +21,7 @@ library(scales)
 ## Quick Summary
 
 ```{r import_dataset}
-df <- read_csv("C:/Users/sasha/OneDrive/Documents/Datasets/calls.csv")
+df <- read_csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/call_original.csv")
 # remove spaces from column names
 colnames(df) <- gsub(" ", "", colnames(df))
 head(df)
@@ -591,7 +592,7 @@ print(min_date)
 
 ```{r drop_dates}
 df_date <- df_phone %>%
-  filter(StartTime >= as.POSIXct("2022-11-04"))
+  filter(StartTime >= as.POSIXct("2022-04-11"))
 phone_min <- min(df_date$StartTime)
 print(phone_min)
 ```
@@ -616,7 +617,7 @@ df_columns <- df_date %>%
 Step 5: Add weather. Source: [https://www.ncei.noaa.gov/access/search/data-search](https://www.ncei.noaa.gov/access/search/data-search/daily-summaries?bbox=33.014,-117.462,32.418,-116.866&pageNum=1)
 
 ```{r import_weather}
-weather <- read_csv("C:/Users/sasha/OneDrive/Documents/Datasets/weather.csv", col_types = cols(
+weather <- read_csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/weather.csv", col_types = cols(
    DATE = col_date(format = "%Y-%m-%d"),  
   TMAX = col_integer(),
   TMAX_ATTRIBUTES = col_character()
@@ -652,7 +653,7 @@ df_prepped <- df_weather %>%
 ```
 
 ```{r save_output}
-write_csv(df_prepped, "C:/Users/sasha/OneDrive/Documents/Datasets/calls_prepped.csv")
+write_csv(df_prepped, "C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/calls_prepped.csv")
 ```
 
 # New Data Exploration
@@ -675,4 +676,358 @@ day_box <- df_prepped|>
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 grid.arrange(temp_scatter, day_box, ncol = 2) 
+```
+
+# Modeling
+
+```{r}
+# make a modeling df from the prepped df for redundancy purposes
+model_df <- df_prepped
+#class(model_df$Date)
+
+# convert df to tsiblle
+model_ts <- model_df |>
+  as_tsibble(index = Date)
+
+#head(model_df)
+```
+
+### ACF, PACF Plots, and Establishing Stationarity for total_calls
+
+```{r}
+# ACF plot of total calls
+calls_ACF <- model_ts |>
+  ACF(total_calls, lag_max = 100) |>
+  autoplot() +
+  ggtitle("ACF of Total Calls")
+
+# PACF of total calls
+calls_PACF <- model_ts |>
+  PACF(total_calls, lag_max = 100) |> 
+  autoplot() + 
+  ggtitle("PACF of Total Calls")
+
+# view in gridarrange
+grid.arrange(calls_ACF, calls_PACF)
+```
+
+```{r}
+# ADF test for stationarity. Null = non-stationary
+adf_result <- adf.test(model_ts$total_calls, alternative = "stationary")
+
+adf_result
+```
+
+The outcome of the Augmented Dickey-Fuller indicates that we are unable to reject the null hypothesis that the series is non-stationary as the p-value is \> 0.05 with a value of 0.5196.
+
+```{r}
+# Determine suggested number differences using unitroot_ndiffs
+suggested_diffs <- model_ts |> 
+  features(total_calls, unitroot_ndiffs)
+
+# print
+suggested_diffs
+```
+
+```{r}
+# perform differencing on the series TO REMOVE TREND
+model_ts_diff <- model_ts |>
+  mutate(differenced_calls = difference(total_calls, lag = 1))
+```
+
+```{r}
+#Check the ACF and PACF of the differenced series to check for stationarity
+# ACF plot of total calls
+calls_ACF_diff <- model_ts_diff |>
+  ACF(differenced_calls, lag_max = 100) |>
+  autoplot() +
+  ggtitle("ACF of Total Calls (Differenced)")
+
+# PACF of total calls
+calls_PACF_diff <- model_ts_diff |>
+  PACF(differenced_calls, lag_max = 100) |> 
+  autoplot() + 
+  ggtitle("PACF of Total Calls (Differenced)")
+
+# view in gridarrange
+grid.arrange(calls_ACF_diff, calls_PACF_diff)
+
+```
+
+### ACF / PACF / Establishing Stationarity for MaxTemp
+
+```{r}
+# Examining temperature variable for Stationarity
+# ACF plot of total calls
+maxtemp_ACF <- model_ts |>
+  ACF(TMAX_CEL, lag_max = 100) |>
+  autoplot() +
+  ggtitle("ACF of Max Temperature (c)")
+
+# PACF of total calls
+maxtemp_PACF <- model_ts |>
+  PACF(TMAX_CEL, lag_max = 100) |> 
+  autoplot() + 
+  ggtitle("PACF of Max Temperature (c)")
+
+# view in gridarrange
+grid.arrange(maxtemp_ACF, maxtemp_PACF)
+```
+
+```{r}
+# ADF test for stationarity. Null = non-stationary
+adf_temp_result <- adf.test(model_ts$TMAX_CEL, alternative = "stationary")
+
+adf_temp_result
+
+```
+
+The Augmented Dickey-Fuller test indicates that with a p-value equal to 0.07 we are unable to reject the null hypothesis that the series is non-stationary and should thus move forward with making the series stationary
+
+```{r}
+# Determine suggested number differences using unitroot_ndiffs
+suggested_temp_diffs <- model_ts |> 
+  features(TMAX_CEL, unitroot_ndiffs)
+
+# print
+suggested_temp_diffs
+```
+
+```{r}
+# perform differencing on the series TO REMOVE TREND
+model_ts_diff <- model_ts_diff |>
+  mutate(differenced_temp = difference(TMAX_CEL, lag = 1))
+```
+
+```{r}
+#Check the ACF and PACF of the differenced series to check for stationarity
+# ACF plot of TMAX_CEL
+temp_ACF_diff <- model_ts_diff |>
+  ACF(differenced_temp, lag_max = 100) |>
+  autoplot() +
+  ggtitle("ACF of Max Temperature (c) (Differenced)")
+
+# PACF of TMAX_CEL
+temp_PACF_diff <- model_ts_diff |>
+  PACF(differenced_temp, lag_max = 100) |> 
+  autoplot() + 
+  ggtitle("PACF of Max Temperature (c) (Differenced)")
+
+# view in gridarrange
+grid.arrange(temp_ACF_diff, temp_PACF_diff)
+```
+
+## Data Partitioning
+
+```{r}
+# Partition the dataset into training and validation set
+# Forecast horizon is 30 days, meaning validation = 30 days
+
+# set split date
+split_date <- as.Date("2024-10-01")
+
+tng_df <- model_ts_diff |>
+  filter(Date < split_date)
+
+#head(tng_df, 5)
+#tail(tng_df, 5)
+
+validation_df <- model_ts_diff |>
+  filter(Date >= split_date)
+
+#head(validation_df, 5)
+#tail(validation_df, 5)
+```
+
+```{r}
+# initialize empty performance metrics tibble to store results
+performance_metrics <- tibble(
+  Model = character(),
+  RMSE = numeric(),
+  MAE = numeric(),
+  MAPE = numeric()
+)
+```
+
+### Seasonal Naive
+
+```{r}
+# fit the model to training data
+snaive_model <- tng_df |>
+  model(SNAIVE(differenced_calls ~ lag(365)))
+
+# forecast validation period
+snaive_forecast <- snaive_model |>
+  forecast(h = nrow(validation_df))
+
+# performance metrics
+snaive_performance <- snaive_forecast |>
+  accuracy(data = validation_df)
+
+# add results to performance metrics table
+performance_metrics <- performance_metrics |>
+  add_row(Model = "SNAIVE",
+          RMSE = snaive_performance$RMSE,
+          MAE = snaive_performance$MAE,
+          MAPE = snaive_performance$MAPE
+          )
+# view table
+performance_metrics
+
+
+```
+
+```{r}
+# Visualize
+snaive_plot <- autoplot(snaive_forecast, tng_df) + 
+  autolayer(validation_df, differenced_calls) + 
+  autolayer(snaive_forecast, color = "red", alpha = 0.5) +
+  ggtitle("SNAIVE Forecast v. Validation Data") + 
+  labs(y = "Differenced Calls")
+
+snaive_plot
+```
+
+### Auto ARIMA (non-seasonal)
+
+```{r}
+# fit the model to the training data
+auto_ARIMA <- tng_df |>
+  model(ARIMA(differenced_calls ~ PDQ(0,0,0)) # 0 tells no seasonal terms
+        )
+
+# view the auto selected model parameters
+report(auto_ARIMA)
+```
+
+```{r}
+# forecast the validation period
+auto_ARIMA_forecast <- auto_ARIMA |>
+  forecast(h = nrow(validation_df))
+
+# performance metrics
+AA_perf_metrics <- auto_ARIMA_forecast |> 
+  accuracy(data = validation_df)
+
+# add performance metrics to table
+performance_metrics <- performance_metrics |> 
+  add_row(Model = "Auto Arima",
+          RMSE = AA_perf_metrics$RMSE,
+          MAE = AA_perf_metrics$MAE,
+          MAPE = AA_perf_metrics$MAPE
+          )
+
+# view metrics
+performance_metrics
+```
+
+```{r}
+# Visualize
+AA_plot <- autoplot(auto_ARIMA_forecast, tng_df) + 
+  autolayer(validation_df, differenced_calls) + 
+  autolayer(auto_ARIMA_forecast, color = "red", alpha = 0.5) +
+  ggtitle("Auto ARIMA(5,0,0) v. Validation Data") + 
+  labs(y = "Differenced Calls")
+
+AA_plot
+```
+
+### Seasonal Auto ARIMA
+
+```{r}
+# fit the model to the training data
+SAA_Model <- tng_df |>
+  model(ARIMA(differenced_calls))
+
+# view the auto selected model parameters
+report(SAA_Model)
+```
+
+```{r}
+# forecast the validation period
+SAA_forecast <- SAA_Model |>
+  forecast(h = nrow(validation_df))
+
+# performance metrics
+SAA_perf_metrics <- SAA_forecast |> 
+  accuracy(data = validation_df)
+
+# add performance metrics to table
+performance_metrics <- performance_metrics |> 
+  add_row(Model = "Seasonal Auto Arima",
+          RMSE = SAA_perf_metrics$RMSE,
+          MAE = SAA_perf_metrics$MAE,
+          MAPE = SAA_perf_metrics$MAPE
+          )
+
+# view metrics
+performance_metrics
+
+```
+
+```{r}
+# visualize
+SAA_plot <- autoplot(SAA_forecast, tng_df) + 
+  autolayer(validation_df, differenced_calls) + 
+  autolayer(SAA_forecast, color = "red", alpha = 0.5) +
+  ggtitle("Seasonal Auto Arima(5,0,0)(1,0,0)[7] v. Validation Data") + 
+  labs(y = "Differenced Calls")
+
+SAA_plot
+```
+
+### Seasonal ARIMA (Manual Tuning)
+
+```{r}
+# fit the model to the training data
+SAA_manual_Model <- tng_df |>
+  model(ARIMA(differenced_calls ~ pdq(6, 0, 0) + PDQ(1, 0, 0), period = 7))
+
+# forecast the validation period
+SAA_manual_forecast <- SAA_manual_Model |>
+  forecast(h = nrow(validation_df))
+
+# performance metrics
+SAA_manual_perf_metrics <- SAA_manual_forecast |> 
+  accuracy(data = validation_df)
+
+# add performance metrics to table
+performance_metrics <- performance_metrics |> 
+  add_row(Model = "Seasonal Auto Arima (manual tuning)",
+          RMSE = SAA_manual_perf_metrics$RMSE,
+          MAE = SAA_manual_perf_metrics$MAE,
+          MAPE = SAA_manual_perf_metrics$MAPE
+          )
+
+# view metrics
+performance_metrics
+```
+
+```{r}
+# Visualize
+SAA_manual_plot <- autoplot(SAA_manual_forecast, tng_df) + 
+  autolayer(validation_df, differenced_calls) + 
+  autolayer(SAA_manual_forecast, color = "red", alpha = 0.5) +
+  ggtitle("Seasonal Auto Arima (manual tuning) v. Validation Data") + 
+  labs(y = "Differenced Calls")
+
+SAA_manual_plot
+```
+
+### Auto ARIMA (w/ Max Temp)
+
+```{r}
+
+```
+
+### Seasonal Auto ARIMA (w/ Max Temp)
+
+```{r}
+
+```
+
+### Seasonal ARIMA (w/ Max Temp & Manual Tuning)
+
+```{r}
+
 ```
