@@ -685,7 +685,7 @@ grid.arrange(temp_scatter, day_box, ncol = 2)
 model_df <- df_prepped
 #class(model_df$Date)
 
-# convert df to tsiblle
+# convert df to tsibble
 model_ts <- model_df |>
   as_tsibble(index = Date)
 
@@ -718,7 +718,7 @@ adf_result <- adf.test(model_ts$total_calls, alternative = "stationary")
 adf_result
 ```
 
-The outcome of the Augmented Dickey-Fuller indicates that we are unable to reject the null hypothesis that the series is non-stationary as the p-value is \> 0.05 with a value of 0.5196.
+The outcome of the Augmented Dickey-Fuller indicates that we are unable to reject the null hypothesis that the series is non-stationary as the p-value is \> 0.05 with a value of 0.2735.
 
 ```{r}
 # Determine suggested number differences using unitroot_ndiffs
@@ -754,67 +754,11 @@ grid.arrange(calls_ACF_diff, calls_PACF_diff)
 
 ```
 
-### ACF / PACF / Establishing Stationarity for MaxTemp
-
-```{r}
-# Examining temperature variable for Stationarity
-# ACF plot of total calls
-maxtemp_ACF <- model_ts |>
-  ACF(TMAX_CEL, lag_max = 100) |>
-  autoplot() +
-  ggtitle("ACF of Max Temperature (c)")
-
-# PACF of total calls
-maxtemp_PACF <- model_ts |>
-  PACF(TMAX_CEL, lag_max = 100) |> 
-  autoplot() + 
-  ggtitle("PACF of Max Temperature (c)")
-
-# view in gridarrange
-grid.arrange(maxtemp_ACF, maxtemp_PACF)
-```
-
 ```{r}
 # ADF test for stationarity. Null = non-stationary
-adf_temp_result <- adf.test(model_ts$TMAX_CEL, alternative = "stationary")
-
-adf_temp_result
-
-```
-
-The Augmented Dickey-Fuller test indicates that with a p-value equal to 0.07 we are unable to reject the null hypothesis that the series is non-stationary and should thus move forward with making the series stationary
-
-```{r}
-# Determine suggested number differences using unitroot_ndiffs
-suggested_temp_diffs <- model_ts |> 
-  features(TMAX_CEL, unitroot_ndiffs)
-
-# print
-suggested_temp_diffs
-```
-
-```{r}
-# perform differencing on the series TO REMOVE TREND
-model_ts_diff <- model_ts_diff |>
-  mutate(differenced_temp = difference(TMAX_CEL, lag = 1))
-```
-
-```{r}
-#Check the ACF and PACF of the differenced series to check for stationarity
-# ACF plot of TMAX_CEL
-temp_ACF_diff <- model_ts_diff |>
-  ACF(differenced_temp, lag_max = 100) |>
-  autoplot() +
-  ggtitle("ACF of Max Temperature (c) (Differenced)")
-
-# PACF of TMAX_CEL
-temp_PACF_diff <- model_ts_diff |>
-  PACF(differenced_temp, lag_max = 100) |> 
-  autoplot() + 
-  ggtitle("PACF of Max Temperature (c) (Differenced)")
-
-# view in gridarrange
-grid.arrange(temp_ACF_diff, temp_PACF_diff)
+adf_result_diff <- adf.test(model_ts_diff$total_calls, alternative = "stationary")
+# having problems reevaluating the stationarity of the differenced series here, I am leaving this here to come back to after I finalize all the models.
+adf_result_diff
 ```
 
 ## Data Partitioning
@@ -881,7 +825,7 @@ performance_metrics
 # Visualize
 snaive_plot <- autoplot(snaive_forecast, tng_df) + 
   autolayer(validation_df, differenced_calls) + 
-  autolayer(snaive_forecast, color = "red", alpha = 0.5) +
+  autolayer(snaive_forecast, color = "red", alpha = 0.25) +
   ggtitle("SNAIVE Forecast v. Validation Data") + 
   labs(y = "Differenced Calls")
 
@@ -925,7 +869,7 @@ performance_metrics
 # Visualize
 AA_plot <- autoplot(auto_ARIMA_forecast, tng_df) + 
   autolayer(validation_df, differenced_calls) + 
-  autolayer(auto_ARIMA_forecast, color = "red", alpha = 0.5) +
+  autolayer(auto_ARIMA_forecast, color = "red", alpha = 0.25) +
   ggtitle("Auto ARIMA(5,0,0) v. Validation Data") + 
   labs(y = "Differenced Calls")
 
@@ -969,34 +913,81 @@ performance_metrics
 # visualize
 SAA_plot <- autoplot(SAA_forecast, tng_df) + 
   autolayer(validation_df, differenced_calls) + 
-  autolayer(SAA_forecast, color = "red", alpha = 0.5) +
+  autolayer(SAA_forecast, color = "red", alpha = 0.25) +
   ggtitle("Seasonal Auto Arima(5,0,0)(1,0,0)[7] v. Validation Data") + 
   labs(y = "Differenced Calls")
 
 SAA_plot
 ```
 
-### Seasonal ARIMA (Manual Tuning)
+### Auto ARIMA (w/ Max Temp)
 
 ```{r}
 # fit the model to the training data
-SAA_manual_Model <- tng_df |>
-  model(ARIMA(differenced_calls ~ pdq(6, 0, 0) + PDQ(1, 0, 0), period = 7))
+AA_temp_model <- tng_df |>
+  model(ARIMA(differenced_calls ~ PDQ(0,0,0) + 
+                TMAX_CEL))
 
+# view the auto selected model parameters
+report(AA_temp_model)
+```
+
+```{r}
 # forecast the validation period
-SAA_manual_forecast <- SAA_manual_Model |>
-  forecast(h = nrow(validation_df))
+AA_temp_forecast <- AA_temp_model |>
+  forecast(new_data = validation_df)
 
 # performance metrics
-SAA_manual_perf_metrics <- SAA_manual_forecast |> 
+AA_temp_perf_metrics <- AA_temp_forecast |> 
   accuracy(data = validation_df)
 
 # add performance metrics to table
 performance_metrics <- performance_metrics |> 
-  add_row(Model = "Seasonal Auto Arima (manual tuning)",
-          RMSE = SAA_manual_perf_metrics$RMSE,
-          MAE = SAA_manual_perf_metrics$MAE,
-          MAPE = SAA_manual_perf_metrics$MAPE
+  add_row(Model = "Auto Arima (w/ Temp)",
+          RMSE = AA_temp_perf_metrics$RMSE,
+          MAE = AA_temp_perf_metrics$MAE,
+          MAPE = AA_temp_perf_metrics$MAPE
+          )
+
+# view metrics
+performance_metrics
+```
+
+```{r}
+# visualize
+AA_temp_plot <- autoplot(AA_temp_forecast, tng_df) + 
+  autolayer(validation_df, differenced_calls) + 
+  autolayer(AA_temp_forecast, color = "red", alpha = 0.25) +
+  ggtitle("Auto Arima w/ Max Temp v. Validation Data") + 
+  labs(y = "Differenced Calls")
+```
+
+### Seasonal Auto ARIMA (w/ Max Temp)
+
+```{r}
+# fit the model to the training data
+SAA_temp_model <- tng_df |>
+  model(ARIMA(differenced_calls ~ TMAX_CEL))
+
+# view the auto selected model parameters
+report(SAA_temp_model)
+```
+
+```{r}
+# forecast the validation period
+SAA_temp_forecast <- SAA_temp_model |>
+  forecast(new_data = validation_df)
+
+# performance metrics
+SAA_temp_perf_metrics <- SAA_temp_forecast |> 
+  accuracy(data = validation_df)
+
+# add performance metrics to table
+performance_metrics <- performance_metrics |> 
+  add_row(Model = "Seasonal Auto Arima (w/ Temp)",
+          RMSE = SAA_temp_perf_metrics$RMSE,
+          MAE = SAA_temp_perf_metrics$MAE,
+          MAPE = SAA_temp_perf_metrics$MAPE
           )
 
 # view metrics
@@ -1005,29 +996,13 @@ performance_metrics
 
 ```{r}
 # Visualize
-SAA_manual_plot <- autoplot(SAA_manual_forecast, tng_df) + 
+SAA_temp_plot <- autoplot(SAA_temp_forecast, tng_df) + 
   autolayer(validation_df, differenced_calls) + 
-  autolayer(SAA_manual_forecast, color = "red", alpha = 0.5) +
-  ggtitle("Seasonal Auto Arima (manual tuning) v. Validation Data") + 
+  autolayer(SAA_temp_forecast, color = "red", alpha = 0.25) +
+  ggtitle("Seasonal Auto Arima w/ Max Temp v. Validation Data") + 
   labs(y = "Differenced Calls")
-
-SAA_manual_plot
 ```
 
-### Auto ARIMA (w/ Max Temp)
+## Model Selection
 
-```{r}
-
-```
-
-### Seasonal Auto ARIMA (w/ Max Temp)
-
-```{r}
-
-```
-
-### Seasonal ARIMA (w/ Max Temp & Manual Tuning)
-
-```{r}
-
-```
+Upon examination of the performance metrics for the selected models it was found that the model with the best performance metrics was the Seasonal Auto ARIMA model which selected parameters of pdq(5,0,0) PDQ(1,0,0) with a period set to 7 days. The model had RMSE = 30.8575 and MAE = 25.3675. These values edge out the Seasonal Auto ARIMA model that includes the max temperature for the day by a small amount with the exception of the performance metric MAPE, which outperformed the SAA model with no temperature 93.8061 compared to 94.1282. Both models performed well, however the model that did not include the maximum temperature for the day has been selected as the model with the highest performance metrics.
