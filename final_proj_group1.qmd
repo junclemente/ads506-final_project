@@ -798,7 +798,7 @@ performance_metrics <- tibble(
 ```{r}
 # fit the model to training data
 snaive_model <- tng_df |>
-  model(SNAIVE(differenced_calls ~ lag(365)))
+  model(SNAIVE(differenced_calls ~ lag(7)))
 
 # forecast validation period
 snaive_forecast <- snaive_model |>
@@ -817,8 +817,6 @@ performance_metrics <- performance_metrics |>
           )
 # view table
 performance_metrics
-
-
 ```
 
 ```{r}
@@ -995,7 +993,7 @@ performance_metrics
 ```
 
 ```{r}
-# Visualize
+# visualize
 SAA_temp_plot <- autoplot(SAA_temp_forecast, tng_df) + 
   autolayer(validation_df, differenced_calls) + 
   autolayer(SAA_temp_forecast, color = "red", alpha = 0.25) +
@@ -1006,3 +1004,48 @@ SAA_temp_plot <- autoplot(SAA_temp_forecast, tng_df) +
 ## Model Selection
 
 Upon examination of the performance metrics for the selected models it was found that the model with the best performance metrics was the Seasonal Auto ARIMA model which selected parameters of pdq(5,0,0) PDQ(1,0,0) with a period set to 7 days. The model had RMSE = 30.8575 and MAE = 25.3675. These values edge out the Seasonal Auto ARIMA model that includes the max temperature for the day by a small amount with the exception of the performance metric MAPE, which outperformed the SAA model with no temperature 93.8061 compared to 94.1282. Both models performed well, however the model that did not include the maximum temperature for the day has been selected as the model with the highest performance metrics.
+
+### Seasonal Auto ARIMA (5,0,0)(1,0,0) Applied to Entire Series
+
+```{r}
+# refit pre-trained SAA model to entire dataset
+SAA_refit <- SAA_Model |>
+  refit(model_ts_diff)
+
+# forecast the next 31 days
+SAA_final_forecast <- SAA_refit |>
+  forecast(h = 31)
+
+# Visualize the forecast
+SAA_final_plot <- autoplot(SAA_final_forecast, model_ts_diff) +
+  ggtitle("31-Day Forecast using Refitted Seasonal Auto ARIMA") +
+  labs(y = "Differenced Calls", x = "Date")
+
+# display the plot
+SAA_final_plot
+```
+
+```{r}
+# reverse differencing to get forecast in the original scale
+last_observed <- model_ts$total_calls[nrow(model_ts)]
+
+SAA_original_scale <- SAA_final_forecast |>
+  mutate(total_calls = .mean + last_observed)
+
+# view the original-scale forecast
+print(SAA_original_scale)
+```
+
+```{r}
+# Get November actual values into a df
+
+# import
+
+# clean
+
+# view
+
+# append
+
+# produce results
+```
