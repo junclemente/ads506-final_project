@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # ADS 506 - Applied Time Series Analysis Final Project
 
 # Installation
@@ -98,3 +92,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
   
 # Acknowledgements
+
+
