@@ -1076,7 +1076,23 @@ nov_results
 original_dc <- model_df |> 
   select(-TMAX_CEL, -Day)
 
+# original_dc
 
-original_dc
 # visualize entirety
+final_viz <- ggplot() +
+  geom_line(data = nov_results, 
+            aes(x = Date, 
+                y = nov_actual),
+            color = "blue",
+            linetype = "solid") +
+  geom_line(data = nov_results,
+            aes(x = Date,
+                y = forecast_calls),
+            color = "red",
+            linetype = "dashed") + 
+  labs(title = "SAA Time Series Monthly Forecast for November",
+       x = "Date",
+       y = "Calls")
+
+final_viz
 ```
