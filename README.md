@@ -72,6 +72,17 @@ prompt and efficient responses during peak periods.
 ## Data Dictionary
 
 <enter data dictionary information> 
+| Variable Name | Type | Description |
+|:--------------|:----:|:-----------:|
+| Start Time | Timestamp | Start of interaction |
+| End Time | Timestamp | End of interaction |
+| Communication Type | Categorical | Communication type |
+| Sub-Communication Type | Categorical | Sub-Communication type |
+| Wait Time | Continuous | Time between communication start and connecting with dispatcher |
+| Time Interactive | Continuous | Length of time for communication |
+| Hold Time | Continuous | Length call was on hold |
+| Wrap Up Time | Continuous | After call time to put in notes |
+
 
 # License
   
