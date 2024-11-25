@@ -2,9 +2,14 @@
 
 # Installation
 
-To setup and run this project, please follow these steps: 1. Clone the
-repository. 2. Using RStudio, navigate to the project directory. 3. Open
-the project file.
+To setup and run this project, please follow these steps: 
+
+1. Clone the repository. 
+
+2. Using RStudio, navigate to the project directory. 
+
+3. Open the project file.
+
 
 # Project Intro / Objective
 
@@ -15,16 +20,17 @@ Society’s capacity to respond to animal emergencies.
 
 # Contributors
 
--   Graham Ward
--   Jun Clemente
--   Sasha Libolt
+## Team 1: 
+-   [Graham Ward](https://github.com/gw-00)
+-   [Jun Clemente](https://github.com/junclemente)
+-   [Sasha Libolt](https://github.com/slibolt)
 
 # Methods Used
 
 - Exploratory Data Analysis (EDA)
-  - Categorival Variables Analysis
-  - Continuous Variables Analysis
-  - Time Series Analysis
+  - Categorical Variables
+  - Continuous Variables 
+  - Time Series
 - Data Cleaning and Preprocessing
 - Modeling
   - ACF Plots
