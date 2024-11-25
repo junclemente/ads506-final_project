@@ -597,7 +597,7 @@ phone_min <- min(df_date$StartTime)
 print(phone_min)
 ```
 
-Step 3: Separate timestamp into date, time, and day of week
+Step 3: Separate time stamp into date, time, and day of week
 
 ```{r convert_dates}
 df_date <- df_date %>%
@@ -752,13 +752,6 @@ calls_PACF_diff <- model_ts_diff |>
 # view in gridarrange
 grid.arrange(calls_ACF_diff, calls_PACF_diff)
 
-```
-
-```{r}
-# ADF test for stationarity. Null = non-stationary
-adf_result_diff <- adf.test(model_ts_diff$total_calls, alternative = "stationary")
-# having problems reevaluating the stationarity of the differenced series here, I am leaving this here to come back to after I finalize all the models.
-adf_result_diff
 ```
 
 ## Data Partitioning
@@ -1030,22 +1023,60 @@ SAA_final_plot
 last_observed <- model_ts$total_calls[nrow(model_ts)]
 
 SAA_original_scale <- SAA_final_forecast |>
-  mutate(total_calls = .mean + last_observed)
+  mutate(forecast_calls = .mean + last_observed)
 
 # view the original-scale forecast
-print(SAA_original_scale)
+# print(SAA_original_scale)
+
+SAA_original_scale
 ```
 
 ```{r}
-# Get November actual values into a df
+# get November actual values into a df
+nov_df <- read.csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/Nov_edify_calls.csv")
 
-# import
+# clean so it is just inbound phone calls
+nov_clean <- nov_df |> 
+  filter(Communication.Type == "phone") %>%
+  filter(Sub.Communication.Type == "inbound")
 
-# clean
+# drop End.Time, Communication.Type, Sub.Communication.Type
+nov_clean <- nov_clean |> 
+  select(-End.Time, -Communication.Type, -Sub.Communication.Type)
+
+# get Start.time to just date format
+nov_clean <- nov_clean |>
+  mutate(Start.Time = as.Date(Start.Time, format = "%m/%d/%Y"))
+
+# get daily counts in a new df with date and nov_calls column
+nov_daily_counts <- nov_clean |> 
+  group_by(Start.Time) |> 
+  summarise(nov_actual = n()) |> 
+  arrange(Start.Time) |> 
+  rename(Date = Start.Time)
 
 # view
+# nov_daily_counts
 
-# append
+# merge
+nov_results <- full_join(nov_daily_counts, SAA_original_scale, by = "Date")
+
+# drop unnecessary columns
+nov_results <- nov_results |> 
+  select(-.model, -differenced_calls, -.mean) |>
+  mutate(forecast_calls = as.integer(forecast_calls)) |> 
+  mutate(Error = forecast_calls - nov_actual)
 
 # produce results
+nov_results
+```
+
+```{r}
+# original counts df with temperature variable dropped
+original_dc <- model_df |> 
+  select(-TMAX_CEL, -Day)
+
+
+original_dc
+# visualize entirety
 ```
