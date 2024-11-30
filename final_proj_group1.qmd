@@ -692,68 +692,6 @@ model_ts <- model_df |>
 #head(model_df)
 ```
 
-### ACF, PACF Plots, and Establishing Stationarity for total_calls
-
-```{r}
-# ACF plot of total calls
-calls_ACF <- model_ts |>
-  ACF(total_calls, lag_max = 100) |>
-  autoplot() +
-  ggtitle("ACF of Total Calls")
-
-# PACF of total calls
-calls_PACF <- model_ts |>
-  PACF(total_calls, lag_max = 100) |> 
-  autoplot() + 
-  ggtitle("PACF of Total Calls")
-
-# view in gridarrange
-grid.arrange(calls_ACF, calls_PACF)
-```
-
-```{r}
-# ADF test for stationarity. Null = non-stationary
-adf_result <- adf.test(model_ts$total_calls, alternative = "stationary")
-
-adf_result
-```
-
-The outcome of the Augmented Dickey-Fuller indicates that we are unable to reject the null hypothesis that the series is non-stationary as the p-value is \> 0.05 with a value of 0.2735.
-
-```{r}
-# Determine suggested number differences using unitroot_ndiffs
-suggested_diffs <- model_ts |> 
-  features(total_calls, unitroot_ndiffs)
-
-# print
-suggested_diffs
-```
-
-```{r}
-# perform differencing on the series TO REMOVE TREND
-model_ts_diff <- model_ts |>
-  mutate(differenced_calls = difference(total_calls, lag = 1))
-```
-
-```{r}
-#Check the ACF and PACF of the differenced series to check for stationarity
-# ACF plot of total calls
-calls_ACF_diff <- model_ts_diff |>
-  ACF(differenced_calls, lag_max = 100) |>
-  autoplot() +
-  ggtitle("ACF of Total Calls (Differenced)")
-
-# PACF of total calls
-calls_PACF_diff <- model_ts_diff |>
-  PACF(differenced_calls, lag_max = 100) |> 
-  autoplot() + 
-  ggtitle("PACF of Total Calls (Differenced)")
-
-# view in gridarrange
-grid.arrange(calls_ACF_diff, calls_PACF_diff)
-
-```
-
 ## Data Partitioning
 
 ```{r}
@@ -763,13 +701,13 @@ grid.arrange(calls_ACF_diff, calls_PACF_diff)
 # set split date
 split_date <- as.Date("2024-10-01")
 
-tng_df <- model_ts_diff |>
+tng_df <- model_ts |>
   filter(Date < split_date)
 
 #head(tng_df, 5)
 #tail(tng_df, 5)
 
-validation_df <- model_ts_diff |>
+validation_df <- model_ts |>
   filter(Date >= split_date)
 
 #head(validation_df, 5)
@@ -791,7 +729,7 @@ performance_metrics <- tibble(
 ```{r}
 # fit the model to training data
 snaive_model <- tng_df |>
-  model(SNAIVE(differenced_calls ~ lag(7)))
+  model(SNAIVE(total_calls ~ lag(7)))
 
 # forecast validation period
 snaive_forecast <- snaive_model |>
@@ -815,10 +753,10 @@ performance_metrics
 ```{r}
 # Visualize
 snaive_plot <- autoplot(snaive_forecast, tng_df) + 
-  autolayer(validation_df, differenced_calls) + 
+  autolayer(validation_df, total_calls) + 
   autolayer(snaive_forecast, color = "red", alpha = 0.25) +
   ggtitle("SNAIVE Forecast v. Validation Data") + 
-  labs(y = "Differenced Calls")
+  labs(y = "Total Calls")
 
 snaive_plot
 ```
@@ -828,7 +766,7 @@ snaive_plot
 ```{r}
 # fit the model to the training data
 auto_ARIMA <- tng_df |>
-  model(ARIMA(differenced_calls ~ PDQ(0,0,0)) # 0 tells no seasonal terms
+  model(ARIMA(total_calls ~ PDQ(0,0,0)) # 0 indicates no seasonal terms
         )
 
 # view the auto selected model parameters
@@ -859,10 +797,10 @@ performance_metrics
 ```{r}
 # Visualize
 AA_plot <- autoplot(auto_ARIMA_forecast, tng_df) + 
-  autolayer(validation_df, differenced_calls) + 
+  autolayer(validation_df, total_calls) + 
   autolayer(auto_ARIMA_forecast, color = "red", alpha = 0.25) +
-  ggtitle("Auto ARIMA(5,0,0) v. Validation Data") + 
-  labs(y = "Differenced Calls")
+  ggtitle("Auto ARIMA(5,1,1) v. Validation Data") + 
+  labs(y = "Total Calls")
 
 AA_plot
 ```
@@ -872,7 +810,7 @@ AA_plot
 ```{r}
 # fit the model to the training data
 SAA_Model <- tng_df |>
-  model(ARIMA(differenced_calls))
+  model(ARIMA(total_calls))
 
 # view the auto selected model parameters
 report(SAA_Model)
@@ -903,10 +841,10 @@ performance_metrics
 ```{r}
 # visualize
 SAA_plot <- autoplot(SAA_forecast, tng_df) + 
-  autolayer(validation_df, differenced_calls) + 
+  autolayer(validation_df, total_calls) + 
   autolayer(SAA_forecast, color = "red", alpha = 0.25) +
-  ggtitle("Seasonal Auto Arima(5,0,0)(1,0,0)[7] v. Validation Data") + 
-  labs(y = "Differenced Calls")
+  ggtitle("Seasonal Auto Arima(1,1,2)(2,0,0)[7] v. Validation Data") + 
+  labs(y = "Total Calls")
 
 SAA_plot
 ```
@@ -916,7 +854,7 @@ SAA_plot
 ```{r}
 # fit the model to the training data
 AA_temp_model <- tng_df |>
-  model(ARIMA(differenced_calls ~ PDQ(0,0,0) + 
+  model(ARIMA(total_calls ~ PDQ(0,0,0) + 
                 TMAX_CEL))
 
 # view the auto selected model parameters
@@ -947,10 +885,10 @@ performance_metrics
 ```{r}
 # visualize
 AA_temp_plot <- autoplot(AA_temp_forecast, tng_df) + 
-  autolayer(validation_df, differenced_calls) + 
+  autolayer(validation_df, total_calls) + 
   autolayer(AA_temp_forecast, color = "red", alpha = 0.25) +
   ggtitle("Auto Arima w/ Max Temp v. Validation Data") + 
-  labs(y = "Differenced Calls")
+  labs(y = "Total Calls")
 ```
 
 ### Seasonal Auto ARIMA (w/ Max Temp)
@@ -958,7 +896,7 @@ AA_temp_plot <- autoplot(AA_temp_forecast, tng_df) +
 ```{r}
 # fit the model to the training data
 SAA_temp_model <- tng_df |>
-  model(ARIMA(differenced_calls ~ TMAX_CEL))
+  model(ARIMA(total_calls ~ TMAX_CEL))
 
 # view the auto selected model parameters
 report(SAA_temp_model)
@@ -988,47 +926,34 @@ performance_metrics
 ```{r}
 # visualize
 SAA_temp_plot <- autoplot(SAA_temp_forecast, tng_df) + 
-  autolayer(validation_df, differenced_calls) + 
+  autolayer(validation_df, total_calls) + 
   autolayer(SAA_temp_forecast, color = "red", alpha = 0.25) +
   ggtitle("Seasonal Auto Arima w/ Max Temp v. Validation Data") + 
-  labs(y = "Differenced Calls")
+  labs(y = "Total Calls")
 ```
 
 ## Model Selection
 
 Upon examination of the performance metrics for the selected models it was found that the model with the best performance metrics was the Seasonal Auto ARIMA model which selected parameters of pdq(5,0,0) PDQ(1,0,0) with a period set to 7 days. The model had RMSE = 30.8575 and MAE = 25.3675. These values edge out the Seasonal Auto ARIMA model that includes the max temperature for the day by a small amount with the exception of the performance metric MAPE, which outperformed the SAA model with no temperature 93.8061 compared to 94.1282. Both models performed well, however the model that did not include the maximum temperature for the day has been selected as the model with the highest performance metrics.
 
-### Seasonal Auto ARIMA (5,0,0)(1,0,0) Applied to Entire Series
+### SNAIVE Model Applied to Entire Series
 
 ```{r}
-# refit pre-trained SAA model to entire dataset
-SAA_refit <- SAA_Model |>
-  refit(model_ts_diff)
+# refit pre-trained SNAIVE model to entire dataset
+SNAIVE_refit <- snaive_model |>
+  refit(model_ts)
 
 # forecast the next 31 days
-SAA_final_forecast <- SAA_refit |>
+SNAIVE_final_forecast <- SNAIVE_refit |>
   forecast(h = 31)
 
 # Visualize the forecast
-SAA_final_plot <- autoplot(SAA_final_forecast, model_ts_diff) +
-  ggtitle("31-Day Forecast using Refitted Seasonal Auto ARIMA") +
-  labs(y = "Differenced Calls", x = "Date")
+SNAIVE_final_plot <- autoplot(SNAIVE_final_forecast, model_ts) +
+  ggtitle("31-Day Forecast using Refitted SNAIVE Model") +
+  labs(y = "Total Calls", x = "Date")
 
 # display the plot
-SAA_final_plot
-```
-
-```{r}
-# reverse differencing to get forecast in the original scale
-last_observed <- model_ts$total_calls[nrow(model_ts)]
-
-SAA_original_scale <- SAA_final_forecast |>
-  mutate(forecast_calls = .mean + last_observed)
-
-# view the original-scale forecast
-# print(SAA_original_scale)
-
-SAA_original_scale
+SNAIVE_final_plot
 ```
 
 ```{r}
@@ -1059,25 +984,19 @@ nov_daily_counts <- nov_clean |>
 # nov_daily_counts
 
 # merge
-nov_results <- full_join(nov_daily_counts, SAA_original_scale, by = "Date")
+nov_results <- full_join(nov_daily_counts, SNAIVE_final_forecast, by = "Date")
 
 # drop unnecessary columns
 nov_results <- nov_results |> 
-  select(-.model, -differenced_calls, -.mean) |>
-  mutate(forecast_calls = as.integer(forecast_calls)) |> 
-  mutate(Error = forecast_calls - nov_actual)
+  select(-.model, -total_calls) |>
+  mutate(Error = .mean - nov_actual) |> 
+  rename(Forecast = .mean)
 
 # produce results
 nov_results
 ```
 
 ```{r}
-# original counts df with temperature variable dropped
-original_dc <- model_df |> 
-  select(-TMAX_CEL, -Day)
-
-# original_dc
-
 # visualize entirety
 final_viz <- ggplot() +
   geom_line(data = nov_results, 
@@ -1087,10 +1006,10 @@ final_viz <- ggplot() +
             linetype = "solid") +
   geom_line(data = nov_results,
             aes(x = Date,
-                y = forecast_calls),
+                y = Forecast),
             color = "red",
             linetype = "dashed") + 
-  labs(title = "SAA Time Series Monthly Forecast for November",
+  labs(title = "SNAIVE Time Series Monthly Forecast for November",
        x = "Date",
        y = "Calls")
 
