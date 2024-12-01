@@ -998,20 +998,16 @@ nov_results
 
 ```{r}
 # visualize entirety
-final_viz <- ggplot() +
-  geom_line(data = nov_results, 
-            aes(x = Date, 
-                y = nov_actual),
-            color = "blue",
-            linetype = "solid") +
-  geom_line(data = nov_results,
-            aes(x = Date,
-                y = Forecast),
-            color = "red",
-            linetype = "dashed") + 
+final_viz <- ggplot(nov_results, aes(x = Date)) +
+  geom_line(aes(y = nov_actual, color = "Actual", linetype = "Actual")) +
+  geom_line(aes(y = Forecast, color = "Forecast", linetype = "Forecast")) +
+  scale_color_manual(values = c("Actual" = "blue", "Forecast" = "red")) +
+  scale_linetype_manual(values = c("Actual" = "solid", "Forecast" = "dashed")) +
   labs(title = "SNAIVE Time Series Monthly Forecast for November",
        x = "Date",
-       y = "Calls")
+       y = "Calls",
+       color = "Legend",
+       linetype = "Legend")
 
 final_viz
 ```
