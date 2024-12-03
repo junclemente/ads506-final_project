@@ -15,6 +15,7 @@ library(tseries)
 library(skimr)
 library(scales)
 library(here)
+library(gridExtra)
 ```
 
 # Exploratory Data Analysis
@@ -660,8 +661,6 @@ write_csv(df_prepped, here("datasets/calls_prepped.csv"))
 # New Data Exploration
 
 ```{r scatter_plots}
-library(gridExtra)
-
 temp_scatter <- df_prepped|>
   ggplot(aes(x = total_calls, y =TMAX_CEL)) + 
   geom_point() + 
@@ -959,7 +958,7 @@ SNAIVE_final_plot
 
 ```{r}
 # get November actual values into a df
-nov_df <- read.csv(here("datasests/Nov_edify_calls.csv"))
+nov_df <- read.csv(here("datasets/Nov_edify_calls.csv"))
 
 # clean so it is just inbound phone calls
 nov_clean <- nov_df |> 
