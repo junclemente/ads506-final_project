@@ -14,6 +14,7 @@ library(gt)
 library(tseries)
 library(skimr)
 library(scales)
+library(here)
 ```
 
 # Exploratory Data Analysis
@@ -21,7 +22,7 @@ library(scales)
 ## Quick Summary
 
 ```{r import_dataset}
-df <- read_csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/call_original.csv")
+df <- read_csv(here("datasets/call_original.csv"))
 # remove spaces from column names
 colnames(df) <- gsub(" ", "", colnames(df))
 head(df)
@@ -617,7 +618,7 @@ df_columns <- df_date %>%
 Step 5: Add weather. Source: [https://www.ncei.noaa.gov/access/search/data-search](https://www.ncei.noaa.gov/access/search/data-search/daily-summaries?bbox=33.014,-117.462,32.418,-116.866&pageNum=1)
 
 ```{r import_weather}
-weather <- read_csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/weather.csv", col_types = cols(
+weather <- read_csv(here("datasets/weather.csv"), col_types = cols(
    DATE = col_date(format = "%Y-%m-%d"),  
   TMAX = col_integer(),
   TMAX_ATTRIBUTES = col_character()
@@ -653,7 +654,7 @@ df_prepped <- df_weather %>%
 ```
 
 ```{r save_output}
-write_csv(df_prepped, "C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/calls_prepped.csv")
+write_csv(df_prepped, here("datasets/calls_prepped.csv"))
 ```
 
 # New Data Exploration
@@ -958,7 +959,7 @@ SNAIVE_final_plot
 
 ```{r}
 # get November actual values into a df
-nov_df <- read.csv("C:/Users/graha/Documents/MS Applied Data Science/ADS_506_TimeSeries/Project/ads506-final_project/Nov_edify_calls.csv")
+nov_df <- read.csv(here("datasests/Nov_edify_calls.csv"))
 
 # clean so it is just inbound phone calls
 nov_clean <- nov_df |> 
