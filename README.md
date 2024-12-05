@@ -48,6 +48,7 @@ Our goal is to address real-world challenges faced by the San Diego County Human
     -   tseries
     -   skimr
     -   scales
+    -   here
     -   gridExtra
 -   R Studio
 -   Google Colab
