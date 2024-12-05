@@ -1013,7 +1013,7 @@ final_viz <- ggplot(nov_results, aes(x = Date)) +
 final_viz
 ```
 
-```{r}
+```{r visualize_errors}
 # visualization of the errors
 errors_viz <- ggplot(nov_results, aes(x = Date)) + 
   geom_line(aes(y = Error, color = "Error", linetype = "Error")) +
