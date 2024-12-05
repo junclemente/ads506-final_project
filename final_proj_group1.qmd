@@ -848,6 +848,7 @@ SAA_plot <- autoplot(SAA_forecast, tng_df) +
   labs(y = "Total Calls")
 
 SAA_plot
+
 ```
 
 ### Auto ARIMA (w/ Max Temp)
@@ -959,7 +960,7 @@ SNAIVE_final_plot
 
 ```{r}
 # get November actual values into a df
-nov_df <- read.csv(here("datasests/Nov_edify_calls.csv"))
+nov_df <- read.csv(here("datasets/Nov_edify_calls.csv"))
 
 # clean so it is just inbound phone calls
 nov_clean <- nov_df |> 
@@ -1011,4 +1012,17 @@ final_viz <- ggplot(nov_results, aes(x = Date)) +
        linetype = "Legend")
 
 final_viz
+```
+
+```{r}
+# visualization of the errors
+errors_viz <- ggplot(nov_results, aes(x = Date)) + 
+  geom_line(aes(y = Error, color = "Error", linetype = "Error")) +
+  labs(title = "SNAIVE Time Series Monthly Forecast Errors for November",
+       x = "Date",
+       y = "Error",
+       color = "Legend",
+       linetype = "Legend")
+
+errors_viz
 ```
